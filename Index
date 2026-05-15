@@ -1,0 +1,48 @@
+const PDF_URL = "https://milenaba71.github.io/stampa-offerta-noleggio/clienti.html";
+let config = input.config();
+let recordId = config.recordId;
+let table = base.getTable("Offerte Clienti");
+let query = await table.selectRecordsAsync({fields: table.fields});
+let record = query.records.find(r => r.id === recordId);
+if (!record) throw new Error("Record non trovato: " + recordId);
+let cl = record.getCellValue("OFFERTA CLIENTE");
+let pg = record.getCellValue("Condizioni di Pagamento");
+let ref = record.getCellValue("Referente commerciale");
+let offer = {
+    numero: record.getCellValueAsString("Codice Offerta")||"",
+    cliente: cl&&cl.length>0?cl[0].name:"",
+    data: record.getCellValue("Data offerta")||"",
+    validita: record.getCellValue("Data Validit\u00e0 Offerta")||"",
+    pagamento: pg?pg.name:"",
+    iva: record.getCellValue("IVA %")||22,
+    corpo: record.getCellValue("Corpo offerta")||"",
+    note: record.getCellValue("Note offerta")||"",
+    consegna: record.getCellValueAsString("Consegna")||"",
+    trasporto: record.getCellValueAsString("Trasporto")||"",
+    telefono: record.getCellValue("telefono")||"",
+    referente_nome: ref?ref.name:"",
+    referente_email: ref?ref.email:"",
+    righe: []
+};
+let rl = record.getCellValue("Righe ordine");
+if (rl&&rl.length>0) {
+    let rt = base.getTable("Righe offerta cliente");
+    let rq = await rt.selectRecordsAsync({fields: rt.fields});
+    let ids = rl.map(r=>r.id);
+    for (let rr of rq.records) {
+        if (ids.includes(rr.id)) {
+            let desc = rr.getCellValueAsString("Descrizione")||"";
+            if(!desc){let prod=rr.getCellValue("Codice articolo");if(prod&&prod.length>0)desc=prod[0].name}
+            offer.righe.push({
+                descrizione: desc,
+                colore: rr.getCellValueAsString("COLORE")||"",
+                taglia: rr.getCellValueAsString("TAGLIA")||"",
+                quantita: rr.getCellValue("Quantit\u00e0")||0,
+                prezzo: rr.getCellValue("Prezzo unitario")||0,
+                sconto: rr.getCellValue("Sconto%")||0
+            });
+        }
+    }
+}
+let url = PDF_URL+"?data="+encodeURIComponent(JSON.stringify(offer));
+await table.updateRecordAsync(recordId, {"Link PDF": url});
